@@ -1,0 +1,25 @@
+---
+- name: Deploy WAR file to Apache Tomcat
+  hosts: test  # Replace with your target server group or IP address
+  become: yes  # Run tasks with root privileges
+
+  tasks:
+    # Task to copy WAR file to Tomcat webapps directory
+    - name: Copy WAR file to Tomcat webapps
+      ansible.builtin.copy:
+        src: /var/lib/jenkins/workspace/Secondpipeline/target/addressbook.war  # Adjust the path to your WAR file
+        dest: /opt/tomcat/webapps/addressbook.war  # Adjust the destination path in Tomcat
+        owner: tomcat
+        group: tomcat
+        remote_src: yes
+        mode: '0644'
+      notify:
+        - Restart Tomcat
+
+  handlers:
+    # Handler to restart Tomcat service
+    - name: Restart Tomcat
+      ansible.builtin.service:
+        name: tomcat
+        state: restarted
+

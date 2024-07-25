@@ -1,0 +1,88 @@
+---
+- name: Install Apache Tomcat on Ubuntu
+  hosts: test  # Replace with your target server group or IP address
+  become: yes  # Run tasks with root privileges
+
+  tasks:
+    # Task to ensure tomcat user exists
+    - name: Ensure tomcat user exists
+      ansible.builtin.user:
+        name: tomcat
+        shell: /bin/bash
+        create_home: yes
+      become: yes
+
+    # Task to download and extract Apache Tomcat
+    - name: Download Apache Tomcat
+      ansible.builtin.command: wget http://archive.apache.org/dist/tomcat/tomcat-9/v9.0.50/bin/apache-tomcat-9.0.50.tar.gz
+      args:
+        chdir: /opt
+
+    - name: Extract Apache Tomcat
+      ansible.builtin.unarchive:
+        src: /opt/apache-tomcat-9.0.50.tar.gz
+        dest: /opt
+        remote_src: yes
+
+    # Task to create a symbolic link for Tomcat installation directory
+    - name: Create symbolic link for Tomcat
+      ansible.builtin.file:
+        src: /opt/apache-tomcat-9.0.50
+        dest: /opt/tomcat
+        state: link
+
+    # Task to set ownership and permissions for Tomcat directory
+    - name: Set ownership and permissions for Tomcat
+      ansible.builtin.file:
+        path: /opt/tomcat
+        owner: tomcat
+        group: tomcat
+        mode: '0755'
+        recurse: yes
+        state: directory
+
+    # Task to configure Tomcat as a systemd service
+    - name: Configure Tomcat service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/tomcat.service
+        content: |
+          [Unit]
+          Description=Apache Tomcat Web Application Container
+          After=network.target
+
+          [Service]
+          Type=forking
+
+          Environment=JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+          Environment=CATALINA_PID=/opt/tomcat/temp/tomcat.pid
+          Environment=CATALINA_HOME=/opt/tomcat
+          Environment=CATALINA_BASE=/opt/tomcat
+          Environment='CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC'
+
+          ExecStart=/opt/tomcat/bin/startup.sh
+          ExecStop=/opt/tomcat/bin/shutdown.sh
+
+          User=tomcat
+          Group=tomcat
+          UMask=0007
+          RestartSec=10
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+      notify:
+        - Reload systemd
+
+    # Task to start and enable Tomcat service
+    - name: Start Tomcat service
+      ansible.builtin.service:
+        name: tomcat
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
