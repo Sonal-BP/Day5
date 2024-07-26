@@ -1,0 +1,31 @@
+---
+- name: Deploy WAR file to Tomcat from Nexus Artifactory
+  hosts: test
+  become: true  # To escalate privileges for tasks that require root access
+
+  vars:
+    nexus_url: "http://ec2-54-198-145-138.compute-1.amazonaws.com:8081/repository/maven-releases/com/example/myapp/1.0.0/"
+    war_file: "myapp-1.0.0.war"
+    tomcat_deploy_dir: "/opt/tomcat/webapps"
+    tomcat_service_name: "tomcat"
+
+  tasks:
+    - name: Download WAR file from Nexus Artifactory
+      get_url:
+        url: "{{ nexus_url }}{{ war_file }}"  # Correct URL path without extra slashes
+        dest: "/tmp/{{ war_file }}"
+        mode: '0644'
+
+    - name: Copy WAR file to Tomcat server
+      copy:
+        src: "/tmp/{{ war_file }}"
+        dest: "{{ tomcat_deploy_dir }}/{{ war_file }}"
+        remote_src: yes
+      notify:
+        - Restart Tomcat
+
+  handlers:
+    - name: Restart Tomcat
+      systemd:
+        name: "{{ tomcat_service_name }}"
+        state: restarted
